@@ -78,4 +78,53 @@ router.post('/logout', (req, res) => {
     res.json({ message: 'Logout exitoso' });
 });
 
+// Endpoint de Registro
+router.post(
+    '/register',
+    [
+        body('username')
+            .isLength({ min: 3 })
+            .withMessage('El nombre de usuario debe tener al menos 3 caracteres')
+            .isAlphanumeric()
+            .withMessage('El nombre de usuario solo puede contener letras y números'),
+        
+        body('password')
+            .isLength({ min: 6 })
+            .withMessage('La contraseña debe tener al menos 6 caracteres')
+            .matches(/\d/)
+            .withMessage('La contraseña debe contener al menos un número')
+    ],
+    validateRequest,
+    async (req, res) => {
+        const { username, password } = req.body;
+
+        try {
+            // Verificar si el usuario ya existe
+            const existingUser = await User.findOne({ username });
+            if (existingUser) {
+                return res.status(400).json({ message: 'El nombre de usuario ya está en uso' });
+            }
+
+            // Hashear la contraseña antes de guardarla
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Crear un nuevo usuario en la BD
+            const newUser = new User({ username, password: hashedPassword });
+            await newUser.save();
+
+            // Generar tokens para la sesión después del registro
+            const { accessToken, refreshToken } = generateTokens(newUser._id);
+
+            res.status(201).json({
+                message: 'Usuario creado exitosamente',
+                accessToken,
+                refreshToken
+            });
+        } catch (error) {
+            res.status(500).json({ error: 'Error al registrar el usuario' });
+        }
+    }
+);
+
+
 module.exports = router;
