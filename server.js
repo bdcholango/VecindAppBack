@@ -22,9 +22,14 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Servir archivos estáticos desde la carpeta "uploads"
 app.use('/uploads', express.static(path.resolve(__dirname, 'uploads')));
 
+
 // Rutas de la API
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/publications', require('./routes/publications'));
+app.use('/api/users', require('./routes/users')); 
+app.use('/api/notifications', require('./routes/notifications'));
+// Servir archivos estáticos desde la carpeta "uploads"
+app.use('/uploads', express.static(path.resolve(__dirname, 'uploads')));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
