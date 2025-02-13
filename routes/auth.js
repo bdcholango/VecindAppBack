@@ -21,8 +21,8 @@ const validateRequest = (req, res, next) => {
 
 // Función para generar Access Token y Refresh Token
 const generateTokens = (userId) => {
-    const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '5m' }); // 10 minutos
-    const refreshToken = jwt.sign({ id: userId }, process.env.REFRESH_SECRET, { expiresIn: '5m' }); // 7 días
+    const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '20m' }); // 10 minutos
+    const refreshToken = jwt.sign({ id: userId }, process.env.REFRESH_SECRET, { expiresIn: '30m' }); // 7 días
 
     refreshTokens.push(refreshToken); // Guardar temporalmente (mejor guardarlo en la BD)
     return { accessToken, refreshToken };
@@ -64,7 +64,7 @@ router.post('/refresh-token', (req, res) => {
 
     try {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
-        const newAccessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: '10s' });
+        const newAccessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: '10m' });
 
         res.json({ accessToken: newAccessToken });
     } catch (error) {
