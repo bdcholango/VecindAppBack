@@ -45,10 +45,23 @@ router.post('/create', verifyToken, upload.single('image'), async (req, res) => 
 // Obtener todas las publicaciones con datos del usuario
 router.get('/', async (req, res) => {
     try {
+
+        let { page, limit } = req.query;
+        page = parseInt(page) || 1; // Página actual (por defecto 1)
+        limit = parseInt(limit) || 5; // Publicaciones por página (por defecto 5)
+
+        const total = await Publication.countDocuments(); // Total de publicaciones
         const publications = await Publication.find()
             .populate('user', 'username') // ✅ Asegura que traiga el nombre del usuario
-            .sort({ createdAt: -1 }); // Ordena de más reciente a más antigua
-        res.json(publications);
+            .sort({ createdAt: -1 }) // Ordena de más reciente a más antigua
+            .skip((page - 1) * limit)
+            .limit(limit); 
+            res.json({
+                publications,
+                total,
+                currentPage: page,
+                totalPages: Math.ceil(total / limit),
+            });
     } catch (error) {
         res.status(500).json({ message: 'Error obteniendo publicaciones' });
     }
