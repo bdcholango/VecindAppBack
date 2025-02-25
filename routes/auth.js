@@ -21,10 +21,10 @@ const validateRequest = (req, res, next) => {
 // Función para generar Access Token y Refresh Token
 const generateTokens = (userId) => {
   const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: "50m",
+    expiresIn: "2h",
   }); // 1 dia
   const refreshToken = jwt.sign({ id: userId }, process.env.REFRESH_SECRET, {
-    expiresIn: "50m",
+    expiresIn: "5h",
   }); // 7 días
 
   refreshTokens.push(refreshToken);
