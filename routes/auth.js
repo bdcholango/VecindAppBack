@@ -21,10 +21,10 @@ const validateRequest = (req, res, next) => {
 // Función para generar Access Token y Refresh Token
 const generateTokens = (userId) => {
   const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: "20m",
-  }); // 20 minutos
+    expiresIn: "50m",
+  }); // 1 dia
   const refreshToken = jwt.sign({ id: userId }, process.env.REFRESH_SECRET, {
-    expiresIn: "7d",
+    expiresIn: "50m",
   }); // 7 días
 
   refreshTokens.push(refreshToken);
@@ -75,7 +75,7 @@ router.post("/refresh-token", (req, res) => {
     const newAccessToken = jwt.sign(
       { id: decoded.id },
       process.env.JWT_SECRET,
-      { expiresIn: "2d" }
+      { expiresIn: "50m" }
     );
 
     res.json({ accessToken: newAccessToken });
