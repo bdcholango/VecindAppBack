@@ -1,131 +1,144 @@
-const express = require('express');
+const express = require("express");
 
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { body, validationResult } = require("express-validator");
+const User = require("../models/User");
 
 const router = express.Router();
 
-// Almacenar Refresh Tokens temporalmente (opcional: guardarlos en la BD en el modelo User)
 let refreshTokens = [];
 
 // Middleware para manejar errores de validación
 const validateRequest = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-    next();
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
 };
 
 // Función para generar Access Token y Refresh Token
 const generateTokens = (userId) => {
-    const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '20m' }); // 10 minutos
-    const refreshToken = jwt.sign({ id: userId }, process.env.REFRESH_SECRET, { expiresIn: '7d' }); // 7 días
+  const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+    expiresIn: "20m",
+  }); // 20 minutos
+  const refreshToken = jwt.sign({ id: userId }, process.env.REFRESH_SECRET, {
+    expiresIn: "7d",
+  }); // 7 días
 
-    refreshTokens.push(refreshToken); // Guardar temporalmente (mejor guardarlo en la BD)
-    return { accessToken, refreshToken };
+  refreshTokens.push(refreshToken);
+  return { accessToken, refreshToken };
 };
 
 // Endpoint de Login (devuelve accessToken y refreshToken)
-router.post('/login', 
-    [
-        body('username').notEmpty().withMessage('El nombre de usuario es obligatorio'),
-        body('password').notEmpty().withMessage('La contraseña es obligatoria')
-    ], 
-    validateRequest, 
-    async (req, res) => {
-        const { username, password } = req.body;
+router.post(
+  "/login",
+  [
+    body("username")
+      .notEmpty()
+      .withMessage("El nombre de usuario es obligatorio"),
+    body("password").notEmpty().withMessage("La contraseña es obligatoria"),
+  ],
+  validateRequest,
+  async (req, res) => {
+    const { username, password } = req.body;
 
-        try {
-            const user = await User.findOne({ username });
-            if (!user) return res.status(400).json({ message: 'Usuario no encontrado' });
+    try {
+      const user = await User.findOne({ username });
+      if (!user)
+        return res.status(400).json({ message: "Usuario no encontrado" });
 
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) return res.status(400).json({ message: 'Contraseña incorrecta' });
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch)
+        return res.status(400).json({ message: "Contraseña incorrecta" });
 
-            const { accessToken, refreshToken } = generateTokens(user._id);
+      const { accessToken, refreshToken } = generateTokens(user._id);
 
-            res.json({ accessToken, refreshToken });
-        } catch (error) {
-            res.status(500).json({ error: 'Error en el login' });
-        }
+      res.json({ accessToken, refreshToken });
+    } catch (error) {
+      res.status(500).json({ error: "Error en el login" });
     }
+  }
 );
 
 // Endpoint para refrescar el token de acceso
-router.post('/refresh-token', (req, res) => {
-    const { refreshToken } = req.body;
+router.post("/refresh-token", (req, res) => {
+  const { refreshToken } = req.body;
 
-    if (!refreshToken || !refreshTokens.includes(refreshToken)) {
-        return res.status(403).json({ message: 'Token inválido o no autorizado' });
-    }
+  if (!refreshToken || !refreshTokens.includes(refreshToken)) {
+    return res.status(403).json({ message: "Token inválido o no autorizado" });
+  }
 
-    try {
-        const decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
-        const newAccessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: '10m' });
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    const newAccessToken = jwt.sign(
+      { id: decoded.id },
+      process.env.JWT_SECRET,
+      { expiresIn: "2d" }
+    );
 
-        res.json({ accessToken: newAccessToken });
-    } catch (error) {
-        return res.status(403).json({ message: 'Token inválido o expirado' });
-    }
+    res.json({ accessToken: newAccessToken });
+  } catch (error) {
+    return res.status(403).json({ message: "Token inválido o expirado" });
+  }
 });
 
 // Logout (elimina el refresh token de la lista)
-router.post('/logout', (req, res) => {
-    const { refreshToken } = req.body;
-    refreshTokens = refreshTokens.filter(token => token !== refreshToken);
-    res.json({ message: 'Logout exitoso' });
+router.post("/logout", (req, res) => {
+  const { refreshToken } = req.body;
+  refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
+  res.json({ message: "Logout exitoso" });
 });
 
 // Endpoint de Registro
 router.post(
-    '/register',
-    [
-        body('username')
-            .isLength({ min: 3 })
-            .withMessage('El nombre de usuario debe tener al menos 3 caracteres')
-            .isAlphanumeric()
-            .withMessage('El nombre de usuario solo puede contener letras y números'),
-        
-        body('password')
-            .isLength({ min: 6 })
-            .withMessage('La contraseña debe tener al menos 6 caracteres')
-            .matches(/\d/)
-            .withMessage('La contraseña debe contener al menos un número')
-    ],
-    validateRequest,
-    async (req, res) => {
-        const { username, password } = req.body;
+  "/register",
+  [
+    body("username")
+      .isLength({ min: 3 })
+      .withMessage("El nombre de usuario debe tener al menos 3 caracteres")
+      .isAlphanumeric()
+      .withMessage("El nombre de usuario solo puede contener letras y números"),
 
-        try {
-            // Verificar si el usuario ya existe
-            const existingUser = await User.findOne({ username });
-            if (existingUser) {
-                return res.status(400).json({ message: 'El nombre de usuario ya está en uso' });
-            }
+    body("password")
+      .isLength({ min: 6 })
+      .withMessage("La contraseña debe tener al menos 6 caracteres")
+      .matches(/\d/)
+      .withMessage("La contraseña debe contener al menos un número"),
+  ],
+  validateRequest,
+  async (req, res) => {
+    const { username, password } = req.body;
 
-            // Hashear la contraseña antes de guardarla
-            const hashedPassword = await bcrypt.hash(password, 10);
+    try {
+      // Verificar si el usuario ya existe
+      const existingUser = await User.findOne({ username });
+      if (existingUser) {
+        return res
+          .status(400)
+          .json({ message: "El nombre de usuario ya está en uso" });
+      }
 
-            // Crear un nuevo usuario en la BD
-            const newUser = new User({ username, password: hashedPassword });
-            await newUser.save();
+      // Hashear la contraseña antes de guardarla
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-            // Generar tokens para la sesión después del registro
-            const { accessToken, refreshToken } = generateTokens(newUser._id);
+      // Crear un nuevo usuario en la BD
+      const newUser = new User({ username, password: hashedPassword });
+      await newUser.save();
 
-            res.status(201).json({
-                message: 'Usuario creado exitosamente',
-                accessToken,
-                refreshToken
-            });
-        } catch (error) {
-            res.status(500).json({ error: 'Error al registrar el usuario' });
-        }
+      // Generar tokens para la sesión después del registro
+      const { accessToken, refreshToken } = generateTokens(newUser._id);
+
+      res.status(201).json({
+        message: "Usuario creado exitosamente",
+        accessToken,
+        refreshToken,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error al registrar el usuario" });
     }
+  }
 );
-
 
 module.exports = router;
